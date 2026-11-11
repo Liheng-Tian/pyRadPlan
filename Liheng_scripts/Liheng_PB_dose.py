@@ -27,6 +27,20 @@ def _convert_ct_to_wepl(hu_block, voxel_size_mm):
     rsp_grid = _convert_hu_to_rsp(hu_block)
     return np.cumsum(rsp_grid * voxel_size_mm, axis=0)
 
+def Dose_on_CT(CT_show_=[],Dose_show_=[],air_HU=-600,bone_HU=250,dose_max=0,alpha_pen=0.6,title_=[]):
+    pl.figure(figsize=(6.25,1), dpi=150)
+    # extent = 0, np.shape(CT_show_)[1], 0, np.shape(Dose_show_)[1]
+    im1 = pl.imshow(CT_show_, cmap='gray', interpolation='nearest',vmin=air_HU, vmax=bone_HU)
+    if np.shape(Dose_show_)[0]>0:
+        if dose_max == 0:
+            dose_max = np.max(Dose_show_)
+        im2 = pl.imshow(Dose_show_, cmap='turbo', alpha=alpha_pen, interpolation='bilinear',vmin=0, vmax=dose_max)
+    pl.axis('off')
+    if len(title_)>0:
+        pl.title(title_)
+
+
+
 
 # =========================================================================
 # 3. UNIFIED PENCIL BEAM PREDICTION MASTER FUNCTION WITH DIAGNOSTIC SUITE
@@ -38,7 +52,7 @@ def predict_pencil_beam_dose(
     cz=None, 
     voxel_size_mm=1.0, 
     sigma_init_mm=None,
-    if_check=0,
+    if_check=None,
     data_block=GLOBAL_DATA_BLOCK
 ):
     """
@@ -109,34 +123,17 @@ def predict_pencil_beam_dose(
     # ---------------------------------------------------------------------
     # DIAGNOSTIC VISUALIZATION BLOCK (IF_CHECK SUITE)
     # ---------------------------------------------------------------------
-    if if_check == 1:
+    if not if_check == None:
         # Extract profiles intersecting right through our active beam axis coordinates
         ct_slice = ct_hu_grid[:, :, cz].T
         task1_slice = task1_dose_grid[:, :, cz].T
         final_slice = final_3d_dose[:, :, cz].T
         
-        fig, axes = pl.subplots(3, 1, figsize=(9, 3), sharex=True)
-        
-        # Panel 1: CT Anatomy Context
-        im0 = axes[0].imshow(ct_slice, cmap='bone', aspect='auto')
-        # axes[0].set_title(f"1. Patient CT Geometry Context (Transverse Slice at Z={cz})")
-        # axes[0].set_ylabel("Height Index (Y)")
-        fig.colorbar(im0, ax=axes[0], label="HU Numbers")
-        
-        # Panel 2: Task 1 Line-Needle Dose Profile
-        im1 = axes[1].imshow(task1_slice, cmap='viridis', aspect='auto')
-        # axes[1].set_title("2. Task 1: Infinite Needle Longitudinal Dose Grid (No Lateral Spread)")
-        # axes[1].set_ylabel("Height Index (Y)")
-        fig.colorbar(im1, ax=axes[1], label="Relative Dose")
-        
-        # Panel 3: Final Physical Scattered Pencil Beam
-        # Capping at the 98.5th percentile preserves deep structure visibility from scaling skew
-        v_max_cap = np.percentile(final_slice, 98.5) if np.max(final_slice) > 0 else 1.0
-        im2 = axes[2].imshow(final_slice, cmap='viridis', aspect='auto', vmax=v_max_cap)
-        # axes[2].set_title(f"3. Final Physical 3D Dose Matrix (With Multiple Coulomb Scattering, Center: {cy})")
-        # axes[2].set_ylabel("Height Index (Y)")
-        # axes[2].set_xlabel("Depth Axis (Axis 0 - Beam Entering from Left)")
-        fig.colorbar(im2, ax=axes[2], label="Physical Dose Intensity")
+        # fig, axes = pl.subplots(3, 1, figsize=(9, 3), sharex=True)
+        if isinstance(if_check, str):
+            Dose_on_CT(ct_slice,final_slice,title_=if_check)
+        else:
+            Dose_on_CT(ct_slice,final_slice,title_=if_check)
         
         pl.tight_layout()
         pl.show()
