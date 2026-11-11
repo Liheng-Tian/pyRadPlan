@@ -56,34 +56,34 @@ result_this = pd.DataFrame(columns=["name", "energy", "range"])
 for CT_file_i in CT_full:
     name_i = os.path.basename(CT_file_i)
     ## need to check if already calculated
-
-    CT_i = np.rint(np.transpose(np.load(CT_file_i), (2, 0, 1))).astype(np.int64)
-    if_overshoot = 1
-    counter_i = 0
-    energy_i = round(np.random.uniform(ene_min, ene_max), 2) ## generate a random energy, penaltrate, reduce
-    while if_overshoot == 1:
-        # print(energy_i)
-        dose_i = predict_pencil_beam_dose(CT_i,energy_mev=energy_i, if_check=0)
-        Bragg_i = np.sum(np.sum(dose_i,axis=-1),axis=-1)
-        if np.mean(Bragg_i[-5:])<0.1*np.max(Bragg_i): ## no overshooting
-            if_overshoot = 0
-            break
+    if int(name_i.split('Angle_')[-1].split('_')[0]) <= 180: # only for non-bed situation
+        CT_i = np.rint(np.transpose(np.load(CT_file_i), (2, 0, 1))).astype(np.int64)
+        if_overshoot = 1
+        counter_i = 0
+        energy_i = round(np.random.uniform(ene_min, ene_max), 2) ## generate a random energy, penaltrate, reduce
+        while if_overshoot == 1:
+            # print(energy_i)
+            dose_i = predict_pencil_beam_dose(CT_i,energy_mev=energy_i, if_check=0)
+            Bragg_i = np.sum(np.sum(dose_i,axis=-1),axis=-1)
+            if np.mean(Bragg_i[-5:])<0.1*np.max(Bragg_i): ## no overshooting
+                if_overshoot = 0
+                break
+            else:
+                energy_i=np.mean([energy_i,ene_min])
+                counter_i = counter_i + 1
+            if counter_i >= 10:
+                break
+        if if_overshoot == 0: ## valid result
+            range_i = distal_falloff_80(Bragg_i)
+            ## calculate 80% distal fall off
         else:
-            energy_i=np.mean([energy_i,ene_min])
-            counter_i = counter_i + 1
-        if counter_i >= 10:
-            break
-    if if_overshoot == 0: ## valid result
-        range_i = distal_falloff_80(Bragg_i)
-        ## calculate 80% distal fall off
-    else:
-        range_i = -1
-        energy_i = -1
-    new_row = pd.DataFrame(
-        [[name_i, energy_i, range_i]],
-        columns=["name", "energy", "range"]
-        )
-    result_this = pd.concat([result_this, new_row], ignore_index=True)
+            range_i = -1
+            energy_i = -1
+        new_row = pd.DataFrame(
+            [[name_i, energy_i, range_i]],
+            columns=["name", "energy", "range"]
+            )
+        result_this = pd.concat([result_this, new_row], ignore_index=True)
     # break # CT blocks
 result_this.to_csv(save_file, index=False)
 
