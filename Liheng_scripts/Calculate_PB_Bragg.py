@@ -45,16 +45,30 @@ print(ts)
 if not os.path.isdir(save_path):
     os.makedirs(save_path)
 
-save_file = save_path + keyword_i+ '_'+ts+'.csv'
+save_file = save_path + keyword_i+'.csv'
 ene_min = 70.0
 ene_max = 220.0
 CT_full = glob.glob(CT_block_path+'*_'+keyword_i+'*')
-CT_full[0]
+# CT_full[0]
+
+if os.path.isfile(save_file):
+    df_existing = pd.read_csv(save_file)
+    print(f"Found existing file: {save_file} – {len(df_existing)} rows loaded.")
+else:
+    df_existing = pd.DataFrame(columns=["name", "energy", "range"])
+    print(f"No existing result file – starting fresh.")
+
 
 result_this = pd.DataFrame(columns=["name", "energy", "range"])
 
 for CT_file_i in CT_full:
     name_i = os.path.basename(CT_file_i)
+
+    if name_i in df_existing["name"].values:
+        # Already in the CSV → skip all heavy calculations
+        # print(f"Skipping {name_i} – already processed.")
+        continue
+
     ## need to check if already calculated
     if int(name_i.split('Angle_')[-1].split('_')[0]) <= 180: # only for non-bed situation
         CT_i = np.rint(np.transpose(np.load(CT_file_i), (2, 0, 1))).astype(np.int64)
@@ -63,7 +77,7 @@ for CT_file_i in CT_full:
         energy_i = round(np.random.uniform(ene_min, ene_max), 2) ## generate a random energy, penaltrate, reduce
         while if_overshoot == 1:
             # print(energy_i)
-            dose_i = predict_pencil_beam_dose(CT_i,energy_mev=energy_i, if_check=0)
+            dose_i = predict_pencil_beam_dose(CT_i,energy_mev=energy_i)
             Bragg_i = np.sum(np.sum(dose_i,axis=-1),axis=-1)
             if np.mean(Bragg_i[-5:])<0.1*np.max(Bragg_i): ## no overshooting
                 if_overshoot = 0
@@ -85,9 +99,13 @@ for CT_file_i in CT_full:
             )
         result_this = pd.concat([result_this, new_row], ignore_index=True)
     # break # CT blocks
+
+result_this = pd.concat([df_existing, result_this], ignore_index=True)
+result_this = result_this.drop_duplicates(subset="name", keep="first")
 result_this.to_csv(save_file, index=False)
 
-save_file_sCT = save_path + 'sCT_'+str(f_i)+'_'+ts+'.csv'
+
+save_file_sCT = save_path + 'sCT_'+str(f_i)+'.csv'
 result_sCT = pd.DataFrame(columns=["name", "energy", "range_p", "range_m"])
 CT_info = result_this
 key_sCT = 'sCT'
@@ -107,8 +125,8 @@ for i in range(len(CT_info)):
         # sCT_p[sCT_p<-900] = -1000 ## ???
 
 
-        dose_p_i = predict_pencil_beam_dose(sCT_p,energy_mev=energy_i, if_check=0)
-        dose_m_i = predict_pencil_beam_dose(sCT_m,energy_mev=energy_i, if_check=0)
+        dose_p_i = predict_pencil_beam_dose(sCT_p,energy_mev=energy_i)
+        dose_m_i = predict_pencil_beam_dose(sCT_m,energy_mev=energy_i)
 
         Bragg_p_i = np.sum(np.sum(dose_p_i,axis=-1),axis=-1)
         Bragg_m_i = np.sum(np.sum(dose_m_i,axis=-1),axis=-1)
