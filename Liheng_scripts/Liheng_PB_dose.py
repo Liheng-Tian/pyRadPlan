@@ -167,3 +167,14 @@ def distal_falloff_80(dose,spacing=1,if_check=0):
 
     return depth_idx * spacing
 print('PB dose calculation loaded, available: please use predict_pencil_beam_dose, distal_falloff_80')
+
+def surface_detection(im_input, threshold_input=-400):
+    shape_im = np.shape(im_input)
+    surface = np.zeros([shape_im[1],shape_im[2]])
+    for shape_i in range(shape_im[1]):
+        for shape_j in range(shape_im[2]):
+            try:                 ############ in case that this line is empty
+                surface[shape_i,shape_j] = next(x[0] for x in enumerate(im_input[:,shape_i,shape_j]) if x[1] > threshold_input)
+            except:
+                surface[shape_i,shape_j] = -1
+    return surface.astype('int')
